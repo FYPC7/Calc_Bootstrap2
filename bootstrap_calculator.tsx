@@ -1,0 +1,623 @@
+import React, { useState, useEffect } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, ScatterChart, Scatter } from 'recharts';
+
+const BootstrapCalculator = () => {
+  const [selectedExercise, setSelectedExercise] = useState('1');
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState({});
+
+  const exercises = [
+    { id: '1', name: 'Media Poblacional', description: 'Pesos de productos (gramos)' },
+    { id: '2', name: 'Comparación Medias', description: 'Tiempo respuesta sistemas (ms)' },
+    { id: '3', name: 'Proporción', description: 'Éxito tratamiento médico' },
+    { id: '4', name: 'Correlación', description: 'Horas estudio vs calificaciones' },
+    { id: '5', name: 'Mediana y Percentiles', description: 'Ingresos mensuales (miles)' },
+    { id: '6', name: 'Razón Varianzas', description: 'Variabilidad procesos' },
+    { id: '7', name: 'Regresión Bootstrap', description: 'Publicidad vs ventas' },
+    { id: '8', name: 'Diferencia Proporciones', description: 'Efectividad tratamientos' },
+    { id: '9', name: 'Bootstrap Paramétrico', description: 'Tiempo fallo componentes' },
+    { id: '10', name: 'Datos Dependientes', description: 'Retornos acciones (%)' }
+  ];
+
+  const defaultData = {
+    '1': { values: '502, 498, 505, 501, 499, 503, 497, 504, 500, 502, 498, 506, 499, 501, 504' },
+    '2': { 
+      groupA: '120, 115, 125, 118, 122, 119, 123, 117, 121, 124',
+      groupB: '135, 132, 138, 134, 136, 133, 139, 131, 137, 140'
+    },
+    '3': { values: '1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1' },
+    '4': {
+      x: '2, 4, 3, 5, 1, 6, 3, 4, 2, 5, 7, 3, 4, 6, 2',
+      y: '65, 78, 72, 85, 58, 88, 70, 79, 63, 82, 92, 68, 75, 86, 61'
+    },
+    '5': { values: '2.5, 3.2, 2.8, 3.5, 2.9, 3.1, 2.7, 3.4, 3.0, 3.3, 2.6, 3.6, 2.9, 3.2, 2.8, 3.1, 2.7, 3.3, 3.0, 2.9' },
+    '6': {
+      groupA: '45.2, 44.8, 45.5, 44.9, 45.1, 45.0, 44.7, 45.3, 44.6, 45.4',
+      groupB: '43.8, 44.5, 43.2, 44.1, 43.9, 44.3, 43.6, 44.0, 43.7, 44.2'
+    },
+    '7': {
+      x: '10, 15, 20, 25, 30, 35, 40, 45, 50, 55',
+      y: '23, 28, 35, 41, 46, 52, 58, 63, 69, 74'
+    },
+    '8': {
+      groupA: '1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1',
+      groupB: '1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0'
+    },
+    '9': { values: '145, 167, 132, 178, 156, 143, 189, 134, 165, 152, 171, 148, 163, 139, 175' },
+    '10': { values: '0.5, 1.2, -0.3, 0.8, 1.1, -0.6, 0.4, 0.9, -0.2, 1.3, 0.7, -0.4, 0.6, 1.0, -0.1, 0.8, 1.2, -0.5, 0.3, 0.9' }
+  };
+
+  useEffect(() => {
+    setData(defaultData[selectedExercise] || {});
+    setResults(null);
+  }, [selectedExercise]);
+
+  const parseNumbers = (str) => {
+    return str.split(',').map(x => parseFloat(x.trim())).filter(x => !isNaN(x));
+  };
+
+  const bootstrap = (sample, statFunc, B = 1000) => {
+    const n = sample.length;
+    const bootstrapStats = [];
+    
+    for (let i = 0; i < B; i++) {
+      const resample = [];
+      for (let j = 0; j < n; j++) {
+        const randomIndex = Math.floor(Math.random() * n);
+        resample.push(sample[randomIndex]);
+      }
+      bootstrapStats.push(statFunc(resample));
+    }
+    
+    return bootstrapStats;
+  };
+
+  const mean = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const variance = (arr) => {
+    const m = mean(arr);
+    return mean(arr.map(x => (x - m) ** 2));
+  };
+  const std = (arr) => Math.sqrt(variance(arr));
+  const median = (arr) => {
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  };
+  const percentile = (arr, p) => {
+    const sorted = [...arr].sort((a, b) => a - b);
+    const index = (p / 100) * (sorted.length - 1);
+    const lower = Math.floor(index);
+    const upper = Math.ceil(index);
+    return lower === upper ? sorted[lower] : sorted[lower] * (upper - index) + sorted[upper] * (index - lower);
+  };
+  const correlation = (x, y) => {
+    const n = x.length;
+    const meanX = mean(x);
+    const meanY = mean(y);
+    const numerator = x.reduce((sum, xi, i) => sum + (xi - meanX) * (y[i] - meanY), 0);
+    const denominator = Math.sqrt(x.reduce((sum, xi) => sum + (xi - meanX) ** 2, 0) * y.reduce((sum, yi) => sum + (yi - meanY) ** 2, 0));
+    return numerator / denominator;
+  };
+
+  const confidenceInterval = (bootstrapStats, alpha = 0.05) => {
+    const sorted = [...bootstrapStats].sort((a, b) => a - b);
+    const lowerIndex = Math.floor(alpha / 2 * sorted.length);
+    const upperIndex = Math.floor((1 - alpha / 2) * sorted.length);
+    return [sorted[lowerIndex], sorted[upperIndex]];
+  };
+
+  const calculateResults = () => {
+    setLoading(true);
+    
+    setTimeout(() => {
+      let result = {};
+      
+      switch (selectedExercise) {
+        case '1': {
+          const values = parseNumbers(data.values || '');
+          if (values.length === 0) break;
+          
+          const originalMean = mean(values);
+          const bootstrapMeans = bootstrap(values, mean);
+          const [lower, upper] = confidenceInterval(bootstrapMeans);
+          
+          result = {
+            type: 'mean',
+            original: originalMean,
+            ci: [lower, upper],
+            bootstrapStats: bootstrapMeans,
+            title: 'Estimación de Media'
+          };
+          break;
+        }
+        
+        case '2': {
+          const groupA = parseNumbers(data.groupA || '');
+          const groupB = parseNumbers(data.groupB || '');
+          if (groupA.length === 0 || groupB.length === 0) break;
+          
+          const meanA = mean(groupA);
+          const meanB = mean(groupB);
+          const originalDiff = meanB - meanA;
+          
+          const bootstrapDiffs = [];
+          for (let i = 0; i < 1000; i++) {
+            const resampleA = bootstrap(groupA, mean, 1)[0];
+            const resampleB = bootstrap(groupB, mean, 1)[0];
+            bootstrapDiffs.push(resampleB - resampleA);
+          }
+          
+          const [lower, upper] = confidenceInterval(bootstrapDiffs);
+          
+          result = {
+            type: 'comparison',
+            meanA,
+            meanB,
+            difference: originalDiff,
+            ci: [lower, upper],
+            bootstrapStats: bootstrapDiffs,
+            significant: !(lower <= 0 && upper >= 0),
+            title: 'Comparación de Medias'
+          };
+          break;
+        }
+        
+        case '3': {
+          const values = parseNumbers(data.values || '');
+          if (values.length === 0) break;
+          
+          const proportion = mean(values);
+          const bootstrapProps = bootstrap(values, mean);
+          const [lower, upper] = confidenceInterval(bootstrapProps, 0.1);
+          
+          result = {
+            type: 'proportion',
+            original: proportion,
+            ci: [lower, upper],
+            bootstrapStats: bootstrapProps,
+            title: 'Estimación de Proporción'
+          };
+          break;
+        }
+        
+        case '4': {
+          const x = parseNumbers(data.x || '');
+          const y = parseNumbers(data.y || '');
+          if (x.length === 0 || y.length === 0 || x.length !== y.length) break;
+          
+          const originalCorr = correlation(x, y);
+          const combined = x.map((xi, i) => [xi, y[i]]);
+          
+          const bootstrapCorrs = [];
+          for (let i = 0; i < 1000; i++) {
+            const resample = [];
+            for (let j = 0; j < combined.length; j++) {
+              const randomIndex = Math.floor(Math.random() * combined.length);
+              resample.push(combined[randomIndex]);
+            }
+            const resampleX = resample.map(pair => pair[0]);
+            const resampleY = resample.map(pair => pair[1]);
+            bootstrapCorrs.push(correlation(resampleX, resampleY));
+          }
+          
+          const [lower, upper] = confidenceInterval(bootstrapCorrs);
+          
+          result = {
+            type: 'correlation',
+            original: originalCorr,
+            ci: [lower, upper],
+            bootstrapStats: bootstrapCorrs,
+            scatterData: x.map((xi, i) => ({ x: xi, y: y[i] })),
+            title: 'Correlación Bootstrap'
+          };
+          break;
+        }
+        
+        case '5': {
+          const values = parseNumbers(data.values || '');
+          if (values.length === 0) break;
+          
+          const originalMedian = median(values);
+          const originalP25 = percentile(values, 25);
+          const originalP75 = percentile(values, 75);
+          
+          const bootstrapMedians = bootstrap(values, median);
+          const bootstrapP25 = bootstrap(values, arr => percentile(arr, 25));
+          const bootstrapP75 = bootstrap(values, arr => percentile(arr, 75));
+          
+          const [medianLower, medianUpper] = confidenceInterval(bootstrapMedians);
+          const [p25Lower, p25Upper] = confidenceInterval(bootstrapP25);
+          const [p75Lower, p75Upper] = confidenceInterval(bootstrapP75);
+          
+          result = {
+            type: 'percentiles',
+            median: { value: originalMedian, ci: [medianLower, medianUpper] },
+            p25: { value: originalP25, ci: [p25Lower, p25Upper] },
+            p75: { value: originalP75, ci: [p75Lower, p75Upper] },
+            bootstrapStats: bootstrapMedians,
+            title: 'Mediana y Percentiles'
+          };
+          break;
+        }
+        
+        default:
+          result = { type: 'placeholder', title: `Ejercicio ${selectedExercise} - En desarrollo` };
+      }
+      
+      setResults(result);
+      setLoading(false);
+    }, 1000);
+  };
+
+  const renderDataInputs = () => {
+    const exercise = exercises.find(ex => ex.id === selectedExercise);
+    
+    switch (selectedExercise) {
+      case '1':
+      case '3':
+      case '5':
+      case '9':
+      case '10':
+        return (
+          <div className="space-y-4">
+            <label className="block text-purple-100 font-medium">Datos (separados por comas)</label>
+            <textarea
+              className="w-full p-3 rounded-lg bg-white/10 border border-purple-300/30 text-white placeholder-purple-200/60 backdrop-blur-sm"
+              rows="3"
+              value={data.values || ''}
+              onChange={(e) => setData({...data, values: e.target.value})}
+              placeholder="Ej: 502, 498, 505, 501, 499..."
+            />
+          </div>
+        );
+      
+      case '2':
+      case '6':
+      case '8':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-purple-100 font-medium mb-2">Grupo A</label>
+              <textarea
+                className="w-full p-3 rounded-lg bg-white/10 border border-purple-300/30 text-white placeholder-purple-200/60 backdrop-blur-sm"
+                rows="2"
+                value={data.groupA || ''}
+                onChange={(e) => setData({...data, groupA: e.target.value})}
+                placeholder="Datos del primer grupo..."
+              />
+            </div>
+            <div>
+              <label className="block text-purple-100 font-medium mb-2">Grupo B</label>
+              <textarea
+                className="w-full p-3 rounded-lg bg-white/10 border border-purple-300/30 text-white placeholder-purple-200/60 backdrop-blur-sm"
+                rows="2"
+                value={data.groupB || ''}
+                onChange={(e) => setData({...data, groupB: e.target.value})}
+                placeholder="Datos del segundo grupo..."
+              />
+            </div>
+          </div>
+        );
+      
+      case '4':
+      case '7':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-purple-100 font-medium mb-2">Variable X</label>
+              <textarea
+                className="w-full p-3 rounded-lg bg-white/10 border border-purple-300/30 text-white placeholder-purple-200/60 backdrop-blur-sm"
+                rows="2"
+                value={data.x || ''}
+                onChange={(e) => setData({...data, x: e.target.value})}
+                placeholder="Valores de X separados por comas..."
+              />
+            </div>
+            <div>
+              <label className="block text-purple-100 font-medium mb-2">Variable Y</label>
+              <textarea
+                className="w-full p-3 rounded-lg bg-white/10 border border-purple-300/30 text-white placeholder-purple-200/60 backdrop-blur-sm"
+                rows="2"
+                value={data.y || ''}
+                onChange={(e) => setData({...data, y: e.target.value})}
+                placeholder="Valores de Y separados por comas..."
+              />
+            </div>
+          </div>
+        );
+      
+      default:
+        return (
+          <div className="text-center text-purple-200/70 py-8">
+            <p>Configuración de datos para este ejercicio en desarrollo...</p>
+          </div>
+        );
+    }
+  };
+
+  const renderResults = () => {
+    if (!results) return null;
+    
+    switch (results.type) {
+      case 'mean':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-purple-300/30">
+              <h3 className="text-xl font-bold text-white mb-4">Resultados</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-purple-200">Media Original:</p>
+                  <p className="text-2xl font-bold text-white">{results.original.toFixed(4)}</p>
+                </div>
+                <div>
+                  <p className="text-purple-200">IC 95%:</p>
+                  <p className="text-xl font-bold text-white">
+                    [{results.ci[0].toFixed(4)}, {results.ci[1].toFixed(4)}]
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-purple-300/30">
+              <h4 className="text-lg font-bold text-white mb-4">Distribución Bootstrap</h4>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={results.bootstrapStats.slice(0, 50).map((val, i) => ({ index: i, value: val }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis dataKey="index" stroke="rgba(255,255,255,0.6)" />
+                  <YAxis stroke="rgba(255,255,255,0.6)" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(139, 69, 193, 0.9)', 
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      borderRadius: '8px'
+                    }} 
+                  />
+                  <Bar dataKey="value" fill="rgba(196, 181, 253, 0.8)" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        );
+      
+      case 'comparison':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-purple-300/30">
+              <h3 className="text-xl font-bold text-white mb-4">Comparación de Medias</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-purple-200">Media A:</p>
+                  <p className="text-xl font-bold text-white">{results.meanA.toFixed(4)}</p>
+                </div>
+                <div>
+                  <p className="text-purple-200">Media B:</p>
+                  <p className="text-xl font-bold text-white">{results.meanB.toFixed(4)}</p>
+                </div>
+                <div>
+                  <p className="text-purple-200">Diferencia:</p>
+                  <p className="text-xl font-bold text-white">{results.difference.toFixed(4)}</p>
+                </div>
+              </div>
+              <div className="mt-4 p-4 rounded-lg bg-white/5">
+                <p className="text-purple-200">IC 95% para la diferencia:</p>
+                <p className="text-xl font-bold text-white">
+                  [{results.ci[0].toFixed(4)}, {results.ci[1].toFixed(4)}]
+                </p>
+                <p className={`mt-2 font-bold ${results.significant ? 'text-red-300' : 'text-green-300'}`}>
+                  {results.significant ? 'Diferencia significativa' : 'No hay diferencia significativa'}
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 'proportion':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-purple-300/30">
+              <h3 className="text-xl font-bold text-white mb-4">Estimación de Proporción</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-purple-200">Proporción:</p>
+                  <p className="text-2xl font-bold text-white">{(results.original * 100).toFixed(2)}%</p>
+                </div>
+                <div>
+                  <p className="text-purple-200">IC 90%:</p>
+                  <p className="text-xl font-bold text-white">
+                    [{(results.ci[0] * 100).toFixed(2)}%, {(results.ci[1] * 100).toFixed(2)}%]
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 'correlation':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-purple-300/30">
+              <h3 className="text-xl font-bold text-white mb-4">Correlación</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-purple-200">Correlación:</p>
+                  <p className="text-2xl font-bold text-white">{results.original.toFixed(4)}</p>
+                </div>
+                <div>
+                  <p className="text-purple-200">IC 95%:</p>
+                  <p className="text-xl font-bold text-white">
+                    [{results.ci[0].toFixed(4)}, {results.ci[1].toFixed(4)}]
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-purple-300/30">
+              <h4 className="text-lg font-bold text-white mb-4">Diagrama de Dispersión</h4>
+              <ResponsiveContainer width="100%" height={300}>
+                <ScatterChart data={results.scatterData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis dataKey="x" stroke="rgba(255,255,255,0.6)" />
+                  <YAxis dataKey="y" stroke="rgba(255,255,255,0.6)" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(139, 69, 193, 0.9)', 
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      borderRadius: '8px'
+                    }} 
+                  />
+                  <Scatter fill="rgba(196, 181, 253, 0.8)" />
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        );
+      
+      case 'percentiles':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-purple-300/30">
+              <h3 className="text-xl font-bold text-white mb-4">Estadísticos de Posición</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center">
+                  <p className="text-purple-200">Percentil 25</p>
+                  <p className="text-xl font-bold text-white">{results.p25.value.toFixed(4)}</p>
+                  <p className="text-sm text-purple-300">
+                    IC: [{results.p25.ci[0].toFixed(3)}, {results.p25.ci[1].toFixed(3)}]
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-purple-200">Mediana</p>
+                  <p className="text-2xl font-bold text-white">{results.median.value.toFixed(4)}</p>
+                  <p className="text-sm text-purple-300">
+                    IC: [{results.median.ci[0].toFixed(3)}, {results.median.ci[1].toFixed(3)}]
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-purple-200">Percentil 75</p>
+                  <p className="text-xl font-bold text-white">{results.p75.value.toFixed(4)}</p>
+                  <p className="text-sm text-purple-300">
+                    IC: [{results.p75.ci[0].toFixed(3)}, {results.p75.ci[1].toFixed(3)}]
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      
+      default:
+        return (
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-purple-300/30 text-center">
+            <p className="text-purple-200">Este ejercicio está en desarrollo...</p>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-violet-800 to-purple-700 p-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">
+            Bootstrap Calculator
+          </h1>
+          <p className="text-purple-200">Calculadora interactiva para métodos bootstrap</p>
+        </div>
+
+        {/* Exercise Selection */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-8 border border-purple-300/30 shadow-2xl">
+          <h2 className="text-2xl font-bold text-white mb-6">Seleccionar Ejercicio</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {exercises.map((exercise) => (
+              <button
+                key={exercise.id}
+                onClick={() => setSelectedExercise(exercise.id)}
+                className={`p-4 rounded-xl border-2 transition-all duration-300 ${
+                  selectedExercise === exercise.id
+                    ? 'border-purple-400 bg-purple-500/30 shadow-lg'
+                    : 'border-purple-300/30 bg-white/5 hover:bg-white/10 hover:border-purple-400/50'
+                }`}
+              >
+                <div className="text-left">
+                  <h3 className="font-bold text-white mb-1">{exercise.name}</h3>
+                  <p className="text-sm text-purple-200">{exercise.description}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Data Input Section */}
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-purple-300/30 shadow-2xl">
+            <h2 className="text-2xl font-bold text-white mb-6">
+              {exercises.find(ex => ex.id === selectedExercise)?.name}
+            </h2>
+            
+            {renderDataInputs()}
+            
+            <button
+              onClick={calculateResults}
+              disabled={loading}
+              className="w-full mt-6 py-3 px-6 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Calculando...
+                </div>
+              ) : (
+                'Calcular Bootstrap'
+              )}
+            </button>
+          </div>
+
+          {/* Results Section */}
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-purple-300/30 shadow-2xl">
+            <h2 className="text-2xl font-bold text-white mb-6">Resultados</h2>
+            
+            {results ? (
+              renderResults()
+            ) : (
+              <div className="text-center text-purple-200/70 py-12">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/10 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <p className="text-lg">Selecciona un ejercicio y haz clic en "Calcular Bootstrap"</p>
+                <p className="text-sm mt-2">Los resultados aparecerán aquí con visualizaciones interactivas</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Information Panel */}
+        <div className="mt-8 bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-purple-300/30 shadow-2xl">
+          <h2 className="text-2xl font-bold text-white mb-4">Información sobre Bootstrap</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white/5 rounded-lg p-4">
+              <h3 className="font-bold text-purple-200 mb-2">Muestras Bootstrap</h3>
+              <p className="text-sm text-purple-300">Se utilizan 1000 muestras bootstrap para cada cálculo</p>
+            </div>
+            <div className="bg-white/5 rounded-lg p-4">
+              <h3 className="font-bold text-purple-200 mb-2">Remuestreo</h3>
+              <p className="text-sm text-purple-300">Muestreo con reemplazo del mismo tamaño que la muestra original</p>
+            </div>
+            <div className="bg-white/5 rounded-lg p-4">
+              <h3 className="font-bold text-purple-200 mb-2">Intervalos de Confianza</h3>
+              <p className="text-sm text-purple-300">Calculados usando el método de percentiles bootstrap</p>
+            </div>
+            <div className="bg-white/5 rounded-lg p-4">
+              <h3 className="font-bold text-purple-200 mb-2">Visualización</h3>
+              <p className="text-sm text-purple-300">Histogramas y gráficos de las distribuciones bootstrap</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default BootstrapCalculator;
